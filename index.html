@@ -4,6 +4,116 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Important PDF Vault</title>
+
+<!--
+=====================================================================
+ SUPABASE SETUP — READ THIS BEFORE USING
+=====================================================================
+
+STEP 1. Create a Supabase project
+   - Go to https://supabase.com and create a new project.
+   - Once it's ready, open Project Settings → API.
+   - Copy your "Project URL" and your "anon public" API key.
+   - Paste them below where it says SUPABASE_URL and SUPABASE_ANON_KEY.
+
+STEP 2. Create the database table
+   - In Supabase, go to: SQL Editor → New query.
+   - Paste the SQL block below and click "Run".
+
+   ----------------------------------------------------------------
+   -- Create the pdf_documents table
+   create table if not exists public.pdf_documents (
+     id            uuid primary key default gen_random_uuid(),
+     user_id       uuid not null references auth.users(id) on delete cascade,
+     file_name     text not null,
+     category      text not null default 'Other',
+     notes         text default '',
+     is_important  boolean not null default false,
+     file_path     text not null,
+     file_size     bigint default 0,
+     created_at    timestamptz not null default now(),
+     updated_at    timestamptz not null default now()
+   );
+
+   -- Helpful index
+   create index if not exists pdf_documents_user_id_idx
+     on public.pdf_documents (user_id, created_at desc);
+
+   -- Enable Row Level Security
+   alter table public.pdf_documents enable row level security;
+
+   -- RLS policies — each user only sees/edits their own rows
+   create policy "Users can view own documents"
+     on public.pdf_documents for select
+     using (auth.uid() = user_id);
+
+   create policy "Users can insert own documents"
+     on public.pdf_documents for insert
+     with check (auth.uid() = user_id);
+
+   create policy "Users can update own documents"
+     on public.pdf_documents for update
+     using (auth.uid() = user_id)
+     with check (auth.uid() = user_id);
+
+   create policy "Users can delete own documents"
+     on public.pdf_documents for delete
+     using (auth.uid() = user_id);
+   ----------------------------------------------------------------
+
+STEP 3. Create the storage bucket
+   - In Supabase, go to: Storage → New bucket.
+   - Name it exactly:  pdf-vault
+   - Leave it as a PRIVATE bucket (do NOT make it public).
+   - Click "Create".
+
+STEP 4. Add storage policies (so users can only see their own files)
+   - In Supabase, go to: SQL Editor → New query.
+   - Paste and run the SQL below.
+
+   ----------------------------------------------------------------
+   -- Storage policies for the 'pdf-vault' bucket.
+   -- Files are stored under a folder named after the user's UUID,
+   -- e.g.  <user_id>/<file>.pdf  — these policies enforce that.
+
+   create policy "Users can upload own pdf files"
+     on storage.objects for insert
+     with check (
+       bucket_id = 'pdf-vault'
+       and (storage.foldername(name))[1] = auth.uid()::text
+     );
+
+   create policy "Users can read own pdf files"
+     on storage.objects for select
+     using (
+       bucket_id = 'pdf-vault'
+       and (storage.foldername(name))[1] = auth.uid()::text
+     );
+
+   create policy "Users can update own pdf files"
+     on storage.objects for update
+     using (
+       bucket_id = 'pdf-vault'
+       and (storage.foldername(name))[1] = auth.uid()::text
+     );
+
+   create policy "Users can delete own pdf files"
+     on storage.objects for delete
+     using (
+       bucket_id = 'pdf-vault'
+       and (storage.foldername(name))[1] = auth.uid()::text
+     );
+   ----------------------------------------------------------------
+
+STEP 5. (Optional but recommended) Disable email confirmation for testing
+   - Auth → Providers → Email → turn off "Confirm email"
+     (You can re-enable this later for production.)
+
+STEP 6. Paste your URL and anon key in the CONFIG block below.
+   - Save this HTML file and open it in your browser.
+=====================================================================
+-->
+
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -30,9 +140,7 @@
     --shadow-lg: 0 10px 25px rgba(15, 30, 61, 0.08), 0 4px 10px rgba(15, 30, 61, 0.04);
   }
 
-  html, body {
-    height: 100%;
-  }
+  html, body { height: 100%; }
 
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
@@ -63,11 +171,7 @@
     flex-wrap: wrap;
   }
 
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+  .brand { display: flex; align-items: center; gap: 12px; }
 
   .brand-icon {
     width: 36px;
@@ -79,7 +183,6 @@
     justify-content: center;
     flex-shrink: 0;
   }
-
   .brand-icon svg { width: 20px; height: 20px; }
 
   .brand-text h1 {
@@ -98,6 +201,20 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .user-chip {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.08);
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .btn {
@@ -116,6 +233,7 @@
     font-family: inherit;
     white-space: nowrap;
   }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
   .btn svg { width: 14px; height: 14px; }
 
   .btn-header {
@@ -123,38 +241,103 @@
     color: #fff;
     border-color: rgba(255, 255, 255, 0.12);
   }
-  .btn-header:hover {
+  .btn-header:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.16);
   }
 
-  .btn-primary {
-    background: var(--accent);
-    color: #fff;
-  }
-  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
 
   .btn-secondary {
     background: var(--surface);
     color: var(--text);
     border-color: var(--border-strong);
   }
-  .btn-secondary:hover {
-    background: var(--surface-alt);
-  }
+  .btn-secondary:hover:not(:disabled) { background: var(--surface-alt); }
 
-  .btn-danger {
-    background: var(--danger-bg);
-    color: var(--danger);
-  }
-  .btn-danger:hover {
-    background: #fee2e2;
-  }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); }
+  .btn-danger:hover:not(:disabled) { background: #fee2e2; }
+
+  .btn-block { width: 100%; justify-content: center; padding: 11px; font-size: 14px; }
 
   /* ===== Main ===== */
   main {
     max-width: 1280px;
     margin: 0 auto;
     padding: 28px;
+  }
+
+  /* ===== Auth screen ===== */
+  .auth-wrap {
+    min-height: calc(100vh - 100px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .auth-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: var(--shadow-lg);
+  }
+  .auth-card h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+  .auth-card .auth-sub {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-bottom: 24px;
+  }
+  .auth-tabs {
+    display: flex;
+    background: var(--surface-alt);
+    padding: 4px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+  .auth-tab {
+    flex: 1;
+    padding: 8px;
+    background: transparent;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+    transition: all 0.15s ease;
+  }
+  .auth-tab.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+  .auth-error {
+    background: var(--danger-bg);
+    color: var(--danger);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-bottom: 12px;
+    display: none;
+  }
+  .auth-success {
+    background: #ecfdf5;
+    color: var(--success);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-bottom: 12px;
+    display: none;
   }
 
   /* Upload zone */
@@ -177,15 +360,8 @@
     color: var(--text-muted);
     margin-bottom: 10px;
   }
-  .upload-zone h3 {
-    font-size: 15px;
-    font-weight: 600;
-    margin-bottom: 4px;
-  }
-  .upload-zone p {
-    font-size: 13px;
-    color: var(--text-muted);
-  }
+  .upload-zone h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .upload-zone p { font-size: 13px; color: var(--text-muted); }
   .upload-zone input { display: none; }
 
   /* Toolbar */
@@ -196,13 +372,7 @@
     flex-wrap: wrap;
     align-items: center;
   }
-
-  .search-wrap {
-    flex: 1;
-    min-width: 240px;
-    position: relative;
-  }
-
+  .search-wrap { flex: 1; min-width: 240px; position: relative; }
   .search-wrap svg {
     position: absolute;
     left: 12px;
@@ -213,7 +383,6 @@
     color: var(--text-light);
     pointer-events: none;
   }
-
   .search-input {
     width: 100%;
     padding: 10px 12px 10px 36px;
@@ -229,7 +398,6 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
   }
-
   .sort-select {
     padding: 10px 12px;
     border: 1px solid var(--border);
@@ -240,10 +408,7 @@
     cursor: pointer;
     color: var(--text);
   }
-  .sort-select:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
+  .sort-select:focus { outline: none; border-color: var(--accent); }
 
   /* Category filters */
   .filters {
@@ -252,7 +417,6 @@
     flex-wrap: wrap;
     margin-bottom: 24px;
   }
-
   .filter-chip {
     padding: 7px 13px;
     border-radius: 999px;
@@ -268,10 +432,7 @@
     align-items: center;
     gap: 5px;
   }
-  .filter-chip:hover {
-    border-color: var(--border-strong);
-    color: var(--text);
-  }
+  .filter-chip:hover { border-color: var(--border-strong); color: var(--text); }
   .filter-chip.active {
     background: var(--navy);
     border-color: var(--navy);
@@ -284,9 +445,7 @@
     border-radius: 10px;
     font-weight: 600;
   }
-  .filter-chip.active .filter-count {
-    background: rgba(255, 255, 255, 0.18);
-  }
+  .filter-chip.active .filter-count { background: rgba(255, 255, 255, 0.18); }
 
   /* Cards grid */
   .grid {
@@ -294,7 +453,6 @@
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 16px;
   }
-
   .card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -311,15 +469,9 @@
     border-color: var(--border-strong);
     transform: translateY(-1px);
   }
-  .card.important {
-    border-left: 3px solid var(--gold);
-  }
+  .card.important { border-left: 3px solid var(--gold); }
 
-  .card-top {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-  }
+  .card-top { display: flex; align-items: flex-start; gap: 12px; }
 
   .pdf-icon {
     width: 42px;
@@ -349,10 +501,7 @@
     margin-bottom: 8px;
   }
 
-  .card-title-block {
-    flex: 1;
-    min-width: 0;
-  }
+  .card-title-block { flex: 1; min-width: 0; }
   .card-title {
     font-size: 14px;
     font-weight: 600;
@@ -385,8 +534,6 @@
     font-weight: 600;
     letter-spacing: 0.2px;
   }
-
-  /* Category badge colors */
   .badge-real-estate { background: #ecfdf5; color: #047857; }
   .badge-contracts   { background: #eff6ff; color: #1d4ed8; }
   .badge-taxes       { background: #fef3c7; color: #92400e; }
@@ -419,11 +566,7 @@
   }
   .card-meta svg { width: 12px; height: 12px; }
 
-  .card-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-  }
+  .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
   .card-actions .btn {
     flex: 1;
     justify-content: center;
@@ -452,6 +595,44 @@
   }
   .empty p { font-size: 13px; }
 
+  /* Loading state */
+  .loading {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .spinner {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Setup error banner (when keys are missing) */
+  .setup-banner {
+    background: #fef3c7;
+    color: #78350f;
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin: 24px;
+    border: 1px solid #fcd34d;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .setup-banner strong { display: block; margin-bottom: 4px; }
+  .setup-banner code {
+    background: rgba(0,0,0,0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
   /* ===== Modal ===== */
   .modal-backdrop {
     position: fixed;
@@ -465,11 +646,7 @@
     animation: fadeIn 0.15s ease;
   }
   .modal-backdrop.show { display: flex; }
-
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   .modal {
     background: var(--surface);
@@ -482,10 +659,9 @@
     display: flex;
     flex-direction: column;
   }
-
   @keyframes slideUp {
     from { transform: translateY(10px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    to   { transform: translateY(0); opacity: 1; }
   }
 
   .modal-header {
@@ -495,10 +671,7 @@
     align-items: center;
     justify-content: space-between;
   }
-  .modal-header h2 {
-    font-size: 16px;
-    font-weight: 600;
-  }
+  .modal-header h2 { font-size: 16px; font-weight: 600; }
   .modal-close {
     background: transparent;
     border: none;
@@ -511,14 +684,9 @@
   .modal-close:hover { background: var(--surface-alt); color: var(--text); }
   .modal-close svg { width: 18px; height: 18px; }
 
-  .modal-body {
-    padding: 22px;
-    overflow-y: auto;
-  }
+  .modal-body { padding: 22px; overflow-y: auto; }
 
-  .form-group {
-    margin-bottom: 14px;
-  }
+  .form-group { margin-bottom: 14px; }
   .form-label {
     display: block;
     font-size: 12px;
@@ -542,11 +710,7 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
   }
-  .form-textarea {
-    resize: vertical;
-    min-height: 70px;
-    font-family: inherit;
-  }
+  .form-textarea { resize: vertical; min-height: 70px; font-family: inherit; }
   .form-file-info {
     font-size: 12px;
     color: var(--text-muted);
@@ -580,10 +744,40 @@
     pointer-events: none;
     transition: all 0.25s ease;
     z-index: 200;
+    max-width: 90vw;
+    text-align: center;
   }
   .toast.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+  }
+  .toast.error { background: var(--danger); }
+  .toast.success { background: var(--success); }
+
+  /* Upload progress overlay */
+  .upload-progress {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--navy);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: var(--shadow-lg);
+    z-index: 150;
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  .upload-progress.show { display: flex; }
+  .upload-progress .spinner {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+    border-color: rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    margin: 0;
   }
 
   /* Mobile */
@@ -596,12 +790,17 @@
     .grid { grid-template-columns: 1fr; }
     .header-actions .btn span { display: none; }
     .header-actions .btn { padding: 9px; }
+    .user-chip { max-width: 110px; font-size: 11px; padding: 6px 10px; }
+    .auth-card { padding: 24px 20px; }
   }
+
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
-<header>
+<!-- ===== Header (visible only when signed in) ===== -->
+<header id="appHeader" class="hidden">
   <div class="header-inner">
     <div class="brand">
       <div class="brand-icon">
@@ -611,24 +810,72 @@
       </div>
       <div class="brand-text">
         <h1>Important PDF Vault</h1>
-        <p>Secure local document storage</p>
+        <p>Synced cloud document storage</p>
       </div>
     </div>
     <div class="header-actions">
-      <button class="btn btn-header" id="exportBtn" title="Export backup">
+      <span class="user-chip" id="userChip"></span>
+      <button class="btn btn-header" id="exportBtn" title="Export metadata backup">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         <span>Export</span>
       </button>
-      <button class="btn btn-header" id="importBtn" title="Import backup">
+      <button class="btn btn-header" id="importBtn" title="Import metadata backup">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <span>Import</span>
       </button>
       <input type="file" id="importInput" accept=".json" style="display:none" />
+      <button class="btn btn-header" id="signOutBtn" title="Sign out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Sign out</span>
+      </button>
     </div>
   </div>
 </header>
 
-<main>
+<!-- ===== Setup banner (shown when SUPABASE_URL/KEY not filled) ===== -->
+<div id="setupBanner" class="setup-banner hidden">
+  <strong>Setup required</strong>
+  Add your <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> in the
+  <code>CONFIG</code> block at the top of the &lt;script&gt; section, then refresh this page.
+  See setup steps in the comment block at the very top of the HTML file.
+</div>
+
+<!-- ===== Auth screen ===== -->
+<div id="authScreen" class="auth-wrap hidden">
+  <div class="auth-card">
+    <div style="display:flex; justify-content:center; margin-bottom:14px;">
+      <div class="brand-icon" style="width:44px; height:44px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;color:#fff;">
+          <path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/>
+        </svg>
+      </div>
+    </div>
+    <h2>Important PDF Vault</h2>
+    <p class="auth-sub">Sign in to access your documents</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-mode="signin">Sign in</button>
+      <button class="auth-tab" data-mode="signup">Create account</button>
+    </div>
+
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-success" id="authSuccess"></div>
+
+    <div class="form-group">
+      <label class="form-label" for="authEmail">Email</label>
+      <input type="email" class="form-input" id="authEmail" autocomplete="email" />
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="authPassword">Password</label>
+      <input type="password" class="form-input" id="authPassword" autocomplete="current-password" />
+    </div>
+
+    <button class="btn btn-primary btn-block" id="authSubmit">Sign in</button>
+  </div>
+</div>
+
+<!-- ===== Main app (visible only when signed in) ===== -->
+<main id="appMain" class="hidden">
   <!-- Upload Zone -->
   <label class="upload-zone" id="uploadZone">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -637,7 +884,7 @@
       <line x1="12" y1="3" x2="12" y2="15"/>
     </svg>
     <h3>Click or drag PDF files to upload</h3>
-    <p>Files are stored securely on your device</p>
+    <p>Files sync to your private cloud vault</p>
     <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple />
   </label>
 
@@ -724,95 +971,51 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="upload-progress" id="uploadProgress">
+  <div class="spinner"></div>
+  <span id="uploadProgressText">Uploading…</span>
+</div>
+
+<!-- Supabase JS client (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 'use strict';
 
-/* ============= IndexedDB Layer ============= */
-const DB_NAME = 'PDFVaultDB';
-const DB_VERSION = 1;
-const STORE = 'pdfs';
-let db = null;
+/* =====================================================================
+   CONFIG — paste your Supabase credentials here
+   =====================================================================
+   Find these in:  Supabase dashboard → Project Settings → API
+   - "Project URL"      → SUPABASE_URL
+   - "anon public" key  → SUPABASE_ANON_KEY
+   ===================================================================== */
+const SUPABASE_URL      = 'https://bmbjtcsyzphfeywbtpxr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtYmp0Y3N5enBoZmV5d2J0cHhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5NTUwNzAsImV4cCI6MjA5MTUzMTA3MH0.nMt4K_6yIEJxsyLMT6ivY65IvaeYo5cDIJhehELXlb4';
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = (e) => {
-      const _db = e.target.result;
-      if (!_db.objectStoreNames.contains(STORE)) {
-        const store = _db.createObjectStore(STORE, { keyPath: 'id' });
-        store.createIndex('uploadDate', 'uploadDate', { unique: false });
-        store.createIndex('category', 'category', { unique: false });
-      }
-    };
-    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
-    req.onerror = (e) => reject(e.target.error);
-  });
-}
+const STORAGE_BUCKET = 'pdf-vault';     // bucket name (must match what you created)
+const TABLE_NAME     = 'pdf_documents'; // table name (must match the SQL)
 
-function tx(mode = 'readonly') {
-  return db.transaction(STORE, mode).objectStore(STORE);
-}
-
-function dbAdd(item) {
-  return new Promise((resolve, reject) => {
-    const r = tx('readwrite').add(item);
-    r.onsuccess = () => resolve(item);
-    r.onerror = (e) => reject(e.target.error);
-  });
-}
-function dbPut(item) {
-  return new Promise((resolve, reject) => {
-    const r = tx('readwrite').put(item);
-    r.onsuccess = () => resolve(item);
-    r.onerror = (e) => reject(e.target.error);
-  });
-}
-function dbDelete(id) {
-  return new Promise((resolve, reject) => {
-    const r = tx('readwrite').delete(id);
-    r.onsuccess = () => resolve();
-    r.onerror = (e) => reject(e.target.error);
-  });
-}
-function dbGetAll() {
-  return new Promise((resolve, reject) => {
-    const r = tx().getAll();
-    r.onsuccess = () => resolve(r.result || []);
-    r.onerror = (e) => reject(e.target.error);
-  });
-}
-function dbGet(id) {
-  return new Promise((resolve, reject) => {
-    const r = tx().get(id);
-    r.onsuccess = () => resolve(r.result);
-    r.onerror = (e) => reject(e.target.error);
-  });
-}
-function dbClear() {
-  return new Promise((resolve, reject) => {
-    const r = tx('readwrite').clear();
-    r.onsuccess = () => resolve();
-    r.onerror = (e) => reject(e.target.error);
-  });
-}
-
-/* ============= App State ============= */
+/* ============= Constants ============= */
 const CATEGORIES = ['Real Estate', 'Contracts', 'Taxes', 'Business', 'Personal', 'Receipts', 'Other'];
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB safety cap
 
+/* ============= App state ============= */
 const state = {
+  supabase: null,
+  user: null,
   items: [],
   search: '',
   category: 'All',
   sort: 'newest',
-  pendingFile: null,   // File object waiting to be saved
-  editingId: null,     // id of item being edited
-  pendingDelete: null
+  pendingFile: null,
+  editingId: null,
+  pendingConfirm: null,
+  authMode: 'signin'
 };
 
 /* ============= Helpers ============= */
-function $(sel) { return document.querySelector(sel); }
-function $$(sel) { return document.querySelectorAll(sel); }
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function $(s) { return document.querySelector(s); }
+function $$(s) { return document.querySelectorAll(s); }
 
 function escapeHtml(s) {
   if (!s) return '';
@@ -820,48 +1023,230 @@ function escapeHtml(s) {
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[c]));
 }
-
 function categoryClass(cat) {
   return 'badge-' + cat.toLowerCase().replace(/\s+/g, '-');
 }
-
 function formatDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
-
-function showToast(msg) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(showToast._t);
-  showToast._t = setTimeout(() => t.classList.remove('show'), 2400);
-}
-
-/* ============= File handling ============= */
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = (e) => reject(e);
-    r.readAsDataURL(file);
-  });
-}
-
-function base64ToBlob(base64) {
-  const parts = base64.split(',');
-  const mime = parts[0].match(/:(.*?);/)[1];
-  const bin = atob(parts[1]);
-  const len = bin.length;
-  const arr = new Uint8Array(len);
-  for (let i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
-
 function formatBytes(bytes) {
+  if (!bytes) return '';
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+function showToast(msg, type) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2800);
+}
+function showProgress(text) {
+  $('#uploadProgressText').textContent = text || 'Working…';
+  $('#uploadProgress').classList.add('show');
+}
+function hideProgress() {
+  $('#uploadProgress').classList.remove('show');
+}
+function friendlyError(err) {
+  if (!err) return 'Something went wrong';
+  const msg = (err.message || err.error_description || String(err)).trim();
+  // Make a few common Supabase errors easier to read
+  if (/invalid.*credentials/i.test(msg)) return 'Incorrect email or password';
+  if (/email.*confirm/i.test(msg))      return 'Please confirm your email, then try again';
+  if (/already.*registered/i.test(msg)) return 'That email is already registered';
+  if (/password.*should be at least/i.test(msg)) return msg;
+  if (/jwt|expired/i.test(msg))         return 'Your session expired — please sign in again';
+  return msg;
+}
+
+/* ============= Supabase init ============= */
+function initSupabase() {
+  if (!SUPABASE_URL || SUPABASE_URL.startsWith('PASTE_') ||
+      !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.startsWith('PASTE_')) {
+    $('#setupBanner').classList.remove('hidden');
+    return false;
+  }
+  state.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true }
+  });
+  return true;
+}
+
+/* ============= Auth ============= */
+function setAuthMode(mode) {
+  state.authMode = mode;
+  $$('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  $('#authSubmit').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+  $('#authError').style.display = 'none';
+  $('#authSuccess').style.display = 'none';
+}
+
+function authError(msg) {
+  const el = $('#authError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  $('#authSuccess').style.display = 'none';
+}
+function authSuccess(msg) {
+  const el = $('#authSuccess');
+  el.textContent = msg;
+  el.style.display = 'block';
+  $('#authError').style.display = 'none';
+}
+
+async function handleAuthSubmit() {
+  const email = $('#authEmail').value.trim();
+  const password = $('#authPassword').value;
+  if (!email || !password) {
+    authError('Please enter both email and password');
+    return;
+  }
+  if (password.length < 6) {
+    authError('Password must be at least 6 characters');
+    return;
+  }
+
+  $('#authSubmit').disabled = true;
+  $('#authSubmit').textContent = 'Please wait…';
+
+  try {
+    if (state.authMode === 'signup') {
+      const { data, error } = await state.supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      // If email confirmation is enabled, no session yet:
+      if (!data.session) {
+        authSuccess('Account created. Check your email to confirm, then sign in.');
+        setAuthMode('signin');
+      }
+      // If confirmation is disabled, onAuthStateChange will move us into the app.
+    } else {
+      const { error } = await state.supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      // onAuthStateChange will move us into the app.
+    }
+  } catch (err) {
+    authError(friendlyError(err));
+  } finally {
+    $('#authSubmit').disabled = false;
+    $('#authSubmit').textContent = state.authMode === 'signup' ? 'Create account' : 'Sign in';
+  }
+}
+
+async function signOut() {
+  try {
+    await state.supabase.auth.signOut();
+  } catch (err) {
+    console.error(err);
+  }
+  // UI switch handled by onAuthStateChange
+}
+
+function showAuthScreen() {
+  state.user = null;
+  state.items = [];
+  $('#appHeader').classList.add('hidden');
+  $('#appMain').classList.add('hidden');
+  $('#authScreen').classList.remove('hidden');
+  $('#authEmail').value = '';
+  $('#authPassword').value = '';
+  setAuthMode('signin');
+}
+
+async function showApp() {
+  $('#authScreen').classList.add('hidden');
+  $('#appHeader').classList.remove('hidden');
+  $('#appMain').classList.remove('hidden');
+  $('#userChip').textContent = state.user.email || 'Signed in';
+  await refresh();
+}
+
+/* ============= Data layer (Supabase) ============= */
+async function fetchAllDocs() {
+  const { data, error } = await state.supabase
+    .from(TABLE_NAME)
+    .select('*')
+    .eq('user_id', state.user.id)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+async function uploadFileToStorage(file) {
+  // Path format: <user_id>/<timestamp>_<safe_name>
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `${state.user.id}/${Date.now()}_${safeName}`;
+  const { error } = await state.supabase
+    .storage
+    .from(STORAGE_BUCKET)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || 'application/pdf'
+    });
+  if (error) throw error;
+  return path;
+}
+
+async function deleteFileFromStorage(path) {
+  if (!path) return;
+  const { error } = await state.supabase
+    .storage
+    .from(STORAGE_BUCKET)
+    .remove([path]);
+  if (error) throw error;
+}
+
+async function getSignedUrl(path) {
+  const { data, error } = await state.supabase
+    .storage
+    .from(STORAGE_BUCKET)
+    .createSignedUrl(path, 60 * 5); // valid for 5 minutes
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+async function downloadFromStorage(path) {
+  const { data, error } = await state.supabase
+    .storage
+    .from(STORAGE_BUCKET)
+    .download(path);
+  if (error) throw error;
+  return data; // Blob
+}
+
+async function insertDoc(meta) {
+  const { data, error } = await state.supabase
+    .from(TABLE_NAME)
+    .insert(meta)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function updateDoc(id, patch) {
+  patch.updated_at = new Date().toISOString();
+  const { data, error } = await state.supabase
+    .from(TABLE_NAME)
+    .update(patch)
+    .eq('id', id)
+    .eq('user_id', state.user.id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+async function deleteDocRow(id) {
+  const { error } = await state.supabase
+    .from(TABLE_NAME)
+    .delete()
+    .eq('id', id)
+    .eq('user_id', state.user.id);
+  if (error) throw error;
 }
 
 /* ============= Modal control ============= */
@@ -880,7 +1265,7 @@ function openEditModal({ file = null, item = null }) {
     $('#notesInput').value = '';
   } else if (item) {
     $('#fileInfoWrap').style.display = 'none';
-    $('#nameInput').value = item.name;
+    $('#nameInput').value = item.file_name;
     $('#categoryInput').value = item.category;
     $('#notesInput').value = item.notes || '';
   }
@@ -888,7 +1273,6 @@ function openEditModal({ file = null, item = null }) {
   $('#editModal').classList.add('show');
   setTimeout(() => $('#nameInput').focus(), 50);
 }
-
 function closeEditModal() {
   $('#editModal').classList.remove('show');
   state.pendingFile = null;
@@ -907,140 +1291,196 @@ function closeConfirm() {
   state.pendingConfirm = null;
 }
 
-/* ============= CRUD ============= */
+/* ============= CRUD operations ============= */
 async function saveFromModal() {
   const name = $('#nameInput').value.trim();
   const category = $('#categoryInput').value;
   const notes = $('#notesInput').value.trim();
 
-  if (!name) { showToast('Please enter a file name'); return; }
+  if (!name) { showToast('Please enter a file name', 'error'); return; }
 
-  if (state.editingId) {
-    const item = await dbGet(state.editingId);
-    if (!item) return;
-    item.name = name;
-    item.category = category;
-    item.notes = notes;
-    await dbPut(item);
-    showToast('Updated');
-  } else if (state.pendingFile) {
-    try {
-      const dataUrl = await fileToBase64(state.pendingFile);
-      const item = {
-        id: uid(),
-        name,
+  $('#modalSave').disabled = true;
+
+  try {
+    if (state.editingId) {
+      await updateDoc(state.editingId, {
+        file_name: name,
         category,
-        notes,
-        size: state.pendingFile.size,
-        uploadDate: new Date().toISOString(),
-        important: false,
-        fileData: dataUrl
-      };
-      await dbAdd(item);
-      showToast('PDF saved');
-    } catch (err) {
-      console.error(err);
-      showToast('Failed to save PDF');
-      return;
+        notes
+      });
+      showToast('Updated', 'success');
+    } else if (state.pendingFile) {
+      if (state.pendingFile.size > MAX_FILE_SIZE) {
+        throw new Error(`File too large (max ${formatBytes(MAX_FILE_SIZE)})`);
+      }
+      showProgress('Uploading PDF…');
+      const filePath = await uploadFileToStorage(state.pendingFile);
+      try {
+        await insertDoc({
+          user_id: state.user.id,
+          file_name: name,
+          category,
+          notes,
+          is_important: false,
+          file_path: filePath,
+          file_size: state.pendingFile.size
+        });
+      } catch (insertErr) {
+        // Clean up orphaned file in storage
+        try { await deleteFileFromStorage(filePath); } catch (_) {}
+        throw insertErr;
+      }
+      showToast('PDF saved to your vault', 'success');
     }
-  }
 
-  closeEditModal();
-  await refresh();
+    closeEditModal();
+    await refresh();
+  } catch (err) {
+    console.error(err);
+    showToast(friendlyError(err), 'error');
+  } finally {
+    hideProgress();
+    $('#modalSave').disabled = false;
+  }
 }
 
 async function toggleImportant(id) {
-  const item = await dbGet(id);
+  const item = state.items.find(x => x.id === id);
   if (!item) return;
-  item.important = !item.important;
-  await dbPut(item);
-  await refresh();
+  try {
+    await updateDoc(id, { is_important: !item.is_important });
+    item.is_important = !item.is_important; // optimistic local update
+    renderGrid();
+  } catch (err) {
+    console.error(err);
+    showToast(friendlyError(err), 'error');
+  }
 }
 
 async function viewPDF(id) {
-  const item = await dbGet(id);
+  const item = state.items.find(x => x.id === id);
   if (!item) return;
-  const blob = base64ToBlob(item.fileData);
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank');
-  // Revoke later — give browser time to load
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  try {
+    showProgress('Opening PDF…');
+    const url = await getSignedUrl(item.file_path);
+    window.open(url, '_blank', 'noopener');
+  } catch (err) {
+    console.error(err);
+    showToast(friendlyError(err), 'error');
+  } finally {
+    hideProgress();
+  }
 }
 
 async function downloadPDF(id) {
-  const item = await dbGet(id);
+  const item = state.items.find(x => x.id === id);
   if (!item) return;
-  const blob = base64ToBlob(item.fileData);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = item.name.endsWith('.pdf') ? item.name : item.name + '.pdf';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  try {
+    showProgress('Downloading…');
+    const blob = await downloadFromStorage(item.file_path);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = item.file_name.endsWith('.pdf') ? item.file_name : item.file_name + '.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  } catch (err) {
+    console.error(err);
+    showToast(friendlyError(err), 'error');
+  } finally {
+    hideProgress();
+  }
 }
 
 function deletePDF(id, name) {
+  const item = state.items.find(x => x.id === id);
+  if (!item) return;
   openConfirm({
     title: 'Delete file?',
     message: `"${name}" will be permanently removed from your vault.`,
     onConfirm: async () => {
-      await dbDelete(id);
-      showToast('Deleted');
-      await refresh();
+      try {
+        showProgress('Deleting…');
+        // Delete storage object first; if that fails the row stays so you can retry.
+        await deleteFileFromStorage(item.file_path);
+        await deleteDocRow(id);
+        showToast('Deleted', 'success');
+        await refresh();
+      } catch (err) {
+        console.error(err);
+        showToast(friendlyError(err), 'error');
+      } finally {
+        hideProgress();
+      }
     }
   });
 }
 
-/* ============= Backup / Restore ============= */
+/* ============= Backup / restore (metadata only) =============
+   Note: Files themselves stay in Supabase Storage.
+   Export saves metadata so you have an off-cloud record. */
 async function exportBackup() {
-  const items = await dbGetAll();
-  if (!items.length) { showToast('Nothing to export'); return; }
+  if (!state.items.length) { showToast('Nothing to export'); return; }
   const payload = {
     app: 'ImportantPDFVault',
-    version: 1,
+    version: 2,
+    storage: 'supabase',
     exportedAt: new Date().toISOString(),
-    items
+    user_email: state.user.email,
+    items: state.items
   };
-  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `pdf-vault-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `pdf-vault-metadata-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
-  showToast(`Exported ${items.length} file(s)`);
+  showToast(`Exported metadata for ${state.items.length} file(s)`, 'success');
 }
 
 async function importBackup(file) {
+  // Metadata-only restore: only useful if your storage files are still there.
   try {
     const text = await file.text();
     const data = JSON.parse(text);
     if (!data || !Array.isArray(data.items)) {
-      showToast('Invalid backup file');
+      showToast('Invalid backup file', 'error');
       return;
     }
     openConfirm({
-      title: 'Import backup?',
-      message: `This will replace your current vault with ${data.items.length} file(s) from the backup.`,
-      confirmText: 'Replace',
+      title: 'Import metadata?',
+      message: `This will add ${data.items.length} metadata entries to your vault. Files must already exist in Supabase Storage.`,
+      confirmText: 'Import',
       onConfirm: async () => {
-        await dbClear();
-        for (const item of data.items) {
-          // Make sure required fields exist
-          if (!item.id) item.id = uid();
-          if (!item.uploadDate) item.uploadDate = new Date().toISOString();
-          if (!item.category) item.category = 'Other';
-          await dbAdd(item);
+        let added = 0, skipped = 0;
+        for (const it of data.items) {
+          if (!it.file_path) { skipped++; continue; }
+          try {
+            await insertDoc({
+              user_id: state.user.id,
+              file_name: it.file_name || 'Untitled',
+              category: it.category || 'Other',
+              notes: it.notes || '',
+              is_important: !!it.is_important,
+              file_path: it.file_path,
+              file_size: it.file_size || 0
+            });
+            added++;
+          } catch (e) {
+            console.warn('Skipped', it, e);
+            skipped++;
+          }
         }
-        showToast(`Imported ${data.items.length} file(s)`);
+        showToast(`Imported ${added} entries${skipped ? ` (${skipped} skipped)` : ''}`, 'success');
         await refresh();
       }
     });
   } catch (err) {
     console.error(err);
-    showToast('Failed to read backup file');
+    showToast('Failed to read backup file', 'error');
   }
 }
 
@@ -1080,29 +1520,28 @@ function getFilteredItems() {
   if (state.search) {
     const q = state.search.toLowerCase();
     list = list.filter(it =>
-      it.name.toLowerCase().includes(q) ||
+      (it.file_name || '').toLowerCase().includes(q) ||
       (it.notes || '').toLowerCase().includes(q)
     );
   }
 
   switch (state.sort) {
     case 'newest':
-      list.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+      list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       break;
     case 'oldest':
-      list.sort((a, b) => new Date(a.uploadDate) - new Date(b.uploadDate));
+      list.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       break;
     case 'az':
-      list.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) => (a.file_name || '').localeCompare(b.file_name || ''));
       break;
     case 'important':
       list.sort((a, b) => {
-        if (a.important !== b.important) return b.important - a.important;
-        return new Date(b.uploadDate) - new Date(a.uploadDate);
+        if (!!a.is_important !== !!b.is_important) return (b.is_important ? 1 : 0) - (a.is_important ? 1 : 0);
+        return new Date(b.created_at) - new Date(a.created_at);
       });
       break;
   }
-
   return list;
 }
 
@@ -1126,7 +1565,7 @@ function renderGrid() {
   }
 
   const cards = list.map(item => `
-    <div class="card ${item.important ? 'important' : ''}" data-id="${item.id}">
+    <div class="card ${item.is_important ? 'important' : ''}" data-id="${item.id}">
       <div class="card-top">
         <div class="pdf-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1135,11 +1574,11 @@ function renderGrid() {
           </svg>
         </div>
         <div class="card-title-block">
-          <div class="card-title">${escapeHtml(item.name)}</div>
+          <div class="card-title">${escapeHtml(item.file_name)}</div>
           <span class="badge ${categoryClass(item.category)}">${escapeHtml(item.category)}</span>
         </div>
-        <button class="star-btn ${item.important ? 'active' : ''}" data-action="star" title="Mark as important">
-          <svg viewBox="0 0 24 24" fill="${item.important ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <button class="star-btn ${item.is_important ? 'active' : ''}" data-action="star" title="Mark as important">
+          <svg viewBox="0 0 24 24" fill="${item.is_important ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
           </svg>
         </button>
@@ -1154,8 +1593,8 @@ function renderGrid() {
           <line x1="8" y1="2" x2="8" y2="6"/>
           <line x1="3" y1="10" x2="21" y2="10"/>
         </svg>
-        <span>${formatDate(item.uploadDate)}</span>
-        ${item.size ? `<span>•</span><span>${formatBytes(item.size)}</span>` : ''}
+        <span>${formatDate(item.created_at)}</span>
+        ${item.file_size ? `<span>•</span><span>${formatBytes(item.file_size)}</span>` : ''}
       </div>
 
       <div class="card-actions">
@@ -1178,7 +1617,6 @@ function renderGrid() {
 
   container.innerHTML = `<div class="grid">${cards}</div>`;
 
-  // Wire card actions
   container.querySelectorAll('.card').forEach(card => {
     const id = card.dataset.id;
     card.querySelectorAll('[data-action]').forEach(btn => {
@@ -1190,9 +1628,9 @@ function renderGrid() {
         else if (action === 'star') toggleImportant(id);
         else if (action === 'delete') {
           const item = state.items.find(x => x.id === id);
-          if (item) deletePDF(id, item.name);
+          if (item) deletePDF(id, item.file_name);
         } else if (action === 'edit') {
-          const item = await dbGet(id);
+          const item = state.items.find(x => x.id === id);
           if (item) openEditModal({ item });
         }
       });
@@ -1201,23 +1639,38 @@ function renderGrid() {
 }
 
 async function refresh() {
-  state.items = await dbGetAll();
-  renderFilters();
-  renderGrid();
+  const container = $('#gridContainer');
+  container.innerHTML = `
+    <div class="loading">
+      <div class="spinner"></div>
+      <div>Loading your documents…</div>
+    </div>
+  `;
+  try {
+    state.items = await fetchAllDocs();
+    renderFilters();
+    renderGrid();
+  } catch (err) {
+    console.error(err);
+    container.innerHTML = `<div class="empty"><h3>Couldn't load documents</h3><p>${escapeHtml(friendlyError(err))}</p></div>`;
+  }
 }
 
-/* ============= Event wiring ============= */
+/* ============= File handling ============= */
 function handleFiles(fileList) {
   const files = Array.from(fileList).filter(f => {
-    if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) return true;
-    return false;
+    return f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
   });
   if (!files.length) {
-    showToast('Please select PDF files only');
+    showToast('Please select PDF files only', 'error');
+    return;
+  }
+  const oversized = files.find(f => f.size > MAX_FILE_SIZE);
+  if (oversized) {
+    showToast(`"${oversized.name}" is too large (max ${formatBytes(MAX_FILE_SIZE)})`, 'error');
     return;
   }
   if (files.length > 1) {
-    // For multiple files, save each with default name and "Other" category, show toast
     multiUpload(files);
   } else {
     openEditModal({ file: files[0] });
@@ -1225,31 +1678,55 @@ function handleFiles(fileList) {
 }
 
 async function multiUpload(files) {
-  let saved = 0;
-  for (const f of files) {
+  let saved = 0, failed = 0;
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    showProgress(`Uploading ${i + 1} of ${files.length}…`);
     try {
-      const dataUrl = await fileToBase64(f);
-      const item = {
-        id: uid(),
-        name: f.name.replace(/\.pdf$/i, ''),
-        category: 'Other',
-        notes: '',
-        size: f.size,
-        uploadDate: new Date().toISOString(),
-        important: false,
-        fileData: dataUrl
-      };
-      await dbAdd(item);
-      saved++;
+      const filePath = await uploadFileToStorage(f);
+      try {
+        await insertDoc({
+          user_id: state.user.id,
+          file_name: f.name.replace(/\.pdf$/i, ''),
+          category: 'Other',
+          notes: '',
+          is_important: false,
+          file_path: filePath,
+          file_size: f.size
+        });
+        saved++;
+      } catch (insertErr) {
+        try { await deleteFileFromStorage(filePath); } catch (_) {}
+        failed++;
+        console.error('Insert failed for', f.name, insertErr);
+      }
     } catch (err) {
-      console.error('Failed to save', f.name, err);
+      failed++;
+      console.error('Upload failed for', f.name, err);
     }
   }
-  showToast(`Saved ${saved} file(s) — set categories from each card`);
+  hideProgress();
+  if (saved && !failed)       showToast(`Saved ${saved} file(s)`, 'success');
+  else if (saved && failed)   showToast(`Saved ${saved}, ${failed} failed`, 'error');
+  else                        showToast(`Upload failed`, 'error');
   await refresh();
 }
 
-function wireEvents() {
+/* ============= Event wiring ============= */
+function wireAuthEvents() {
+  $$('.auth-tab').forEach(tab => {
+    tab.addEventListener('click', () => setAuthMode(tab.dataset.mode));
+  });
+  $('#authSubmit').addEventListener('click', handleAuthSubmit);
+  ['authEmail', 'authPassword'].forEach(id => {
+    $('#' + id).addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleAuthSubmit();
+    });
+  });
+  $('#signOutBtn').addEventListener('click', signOut);
+}
+
+function wireAppEvents() {
   // Upload input
   $('#fileInput').addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length) {
@@ -1290,7 +1767,7 @@ function wireEvents() {
     renderGrid();
   });
 
-  // Modals
+  // Edit modal
   $('#modalClose').addEventListener('click', closeEditModal);
   $('#modalCancel').addEventListener('click', closeEditModal);
   $('#modalSave').addEventListener('click', saveFromModal);
@@ -1298,6 +1775,7 @@ function wireEvents() {
     if (e.target.id === 'editModal') closeEditModal();
   });
 
+  // Confirm modal
   $('#confirmCancel').addEventListener('click', closeConfirm);
   $('#confirmOk').addEventListener('click', () => {
     if (state.pendingConfirm) state.pendingConfirm();
@@ -1327,13 +1805,33 @@ function wireEvents() {
 
 /* ============= Init ============= */
 (async function init() {
+  if (!initSupabase()) return;
+
+  wireAuthEvents();
+  wireAppEvents();
+
+  // Listen for sign-in / sign-out events
+  state.supabase.auth.onAuthStateChange(async (event, session) => {
+    if (session && session.user) {
+      state.user = session.user;
+      await showApp();
+    } else {
+      showAuthScreen();
+    }
+  });
+
+  // Check existing session on load
   try {
-    await openDB();
-    wireEvents();
-    await refresh();
+    const { data: { session } } = await state.supabase.auth.getSession();
+    if (session && session.user) {
+      state.user = session.user;
+      await showApp();
+    } else {
+      showAuthScreen();
+    }
   } catch (err) {
-    console.error('Init failed', err);
-    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif"><h2>Storage unavailable</h2><p>Your browser blocked IndexedDB. Try a regular (non-private) window.</p></div>';
+    console.error(err);
+    showAuthScreen();
   }
 })();
 </script>

@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Important PDF Vault</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0f1e3d;
+    --navy-light: #1a2b50;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --gold: #f59e0b;
+    --gold-light: #fbbf24;
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-alt: #f8fafc;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --text-light: #94a3b8;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --success: #059669;
+    --shadow-sm: 0 1px 2px rgba(15, 30, 61, 0.04);
+    --shadow: 0 1px 3px rgba(15, 30, 61, 0.08), 0 1px 2px rgba(15, 30, 61, 0.04);
+    --shadow-lg: 0 10px 25px rgba(15, 30, 61, 0.08), 0 4px 10px rgba(15, 30, 61, 0.04);
+  }
+
+  html, body {
+    height: 100%;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== Header ===== */
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 22px 28px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .header-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #2563eb, #4f46e5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .brand-icon svg { width: 20px; height: 20px; }
+
+  .brand-text h1 {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+  }
+  .brand-text p {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+    margin-top: 1px;
+    letter-spacing: 0.2px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+  .btn svg { width: 14px; height: 14px; }
+
+  .btn-header {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+  .btn-header:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--accent-hover); }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+  .btn-secondary:hover {
+    background: var(--surface-alt);
+  }
+
+  .btn-danger {
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+  .btn-danger:hover {
+    background: #fee2e2;
+  }
+
+  /* ===== Main ===== */
+  main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 28px;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    background: var(--surface);
+    border: 2px dashed var(--border-strong);
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    margin-bottom: 24px;
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: #eff6ff;
+  }
+  .upload-zone svg {
+    width: 36px; height: 36px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .upload-zone h3 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .upload-zone p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .upload-zone input { display: none; }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .search-wrap {
+    flex: 1;
+    min-width: 240px;
+    position: relative;
+  }
+
+  .search-wrap svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    color: var(--text-light);
+    pointer-events: none;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 10px 12px 10px 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--surface);
+    transition: all 0.15s ease;
+  }
+  .search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  .sort-select {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--surface);
+    cursor: pointer;
+    color: var(--text);
+  }
+  .sort-select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  /* Category filters */
+  .filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+
+  .filter-chip {
+    padding: 7px 13px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .filter-chip:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+  .filter-chip.active {
+    background: var(--navy);
+    border-color: var(--navy);
+    color: #fff;
+  }
+  .filter-count {
+    font-size: 11px;
+    background: rgba(0, 0, 0, 0.06);
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .filter-chip.active .filter-count {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  /* Cards grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+  }
+  .card:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+  }
+  .card.important {
+    border-left: 3px solid var(--gold);
+  }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .pdf-icon {
+    width: 42px;
+    height: 50px;
+    background: linear-gradient(135deg, #fef2f2, #fee2e2);
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .pdf-icon::after {
+    content: 'PDF';
+    position: absolute;
+    bottom: 6px;
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--danger);
+    letter-spacing: 0.5px;
+  }
+  .pdf-icon svg {
+    width: 20px;
+    height: 20px;
+    color: var(--danger);
+    margin-bottom: 8px;
+  }
+
+  .card-title-block {
+    flex: 1;
+    min-width: 0;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-word;
+    line-height: 1.35;
+    margin-bottom: 6px;
+  }
+
+  .star-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--text-light);
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+    border-radius: 4px;
+  }
+  .star-btn:hover { background: var(--surface-alt); }
+  .star-btn svg { width: 18px; height: 18px; }
+  .star-btn.active { color: var(--gold); }
+  .star-btn.active svg { fill: var(--gold); }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+
+  /* Category badge colors */
+  .badge-real-estate { background: #ecfdf5; color: #047857; }
+  .badge-contracts   { background: #eff6ff; color: #1d4ed8; }
+  .badge-taxes       { background: #fef3c7; color: #92400e; }
+  .badge-business    { background: #ede9fe; color: #6d28d9; }
+  .badge-personal    { background: #fce7f3; color: #be185d; }
+  .badge-receipts    { background: #fef2f2; color: #b91c1c; }
+  .badge-other       { background: #f1f5f9; color: #475569; }
+
+  .card-notes {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.45;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-notes:empty { display: none; }
+
+  .card-meta {
+    font-size: 11px;
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+    margin-top: auto;
+  }
+  .card-meta svg { width: 12px; height: 12px; }
+
+  .card-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .card-actions .btn {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 10px;
+    font-size: 12px;
+    min-width: 0;
+  }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 64px 20px;
+    color: var(--text-muted);
+  }
+  .empty svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 14px;
+    color: var(--text-light);
+  }
+  .empty h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .empty p { font-size: 13px; }
+
+  /* ===== Modal ===== */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 30, 61, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 16px;
+    animation: fadeIn 0.15s ease;
+  }
+  .modal-backdrop.show { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .modal {
+    background: var(--surface);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: var(--shadow-lg);
+    animation: slideUp 0.2s ease;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .modal-header {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-header h2 {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .modal-close {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+  }
+  .modal-close:hover { background: var(--surface-alt); color: var(--text); }
+  .modal-close svg { width: 18px; height: 18px; }
+
+  .modal-body {
+    padding: 22px;
+    overflow-y: auto;
+  }
+
+  .form-group {
+    margin-bottom: 14px;
+  }
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: 0.2px;
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--text);
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+  .form-textarea {
+    resize: vertical;
+    min-height: 70px;
+    font-family: inherit;
+  }
+  .form-file-info {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--surface-alt);
+    padding: 8px 12px;
+    border-radius: 6px;
+    word-break: break-word;
+  }
+
+  .modal-footer {
+    padding: 14px 22px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--navy);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.25s ease;
+    z-index: 200;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    header { padding: 16px 16px; }
+    main { padding: 16px; }
+    .brand-text h1 { font-size: 16px; }
+    .brand-text p { font-size: 11px; }
+    .upload-zone { padding: 24px 16px; }
+    .grid { grid-template-columns: 1fr; }
+    .header-actions .btn span { display: none; }
+    .header-actions .btn { padding: 9px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>Important PDF Vault</h1>
+        <p>Secure local document storage</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-header" id="exportBtn" title="Export backup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span>Export</span>
+      </button>
+      <button class="btn btn-header" id="importBtn" title="Import backup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Import</span>
+      </button>
+      <input type="file" id="importInput" accept=".json" style="display:none" />
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Upload Zone -->
+  <label class="upload-zone" id="uploadZone">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <h3>Click or drag PDF files to upload</h3>
+    <p>Files are stored securely on your device</p>
+    <input type="file" id="fileInput" accept="application/pdf,.pdf" multiple />
+  </label>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="Search by file name or notes..." />
+    </div>
+    <select class="sort-select" id="sortSelect">
+      <option value="newest">Newest first</option>
+      <option value="oldest">Oldest first</option>
+      <option value="az">Name (A–Z)</option>
+      <option value="important">Important first</option>
+    </select>
+  </div>
+
+  <!-- Category filters -->
+  <div class="filters" id="filters"></div>
+
+  <!-- Grid -->
+  <div id="gridContainer"></div>
+</main>
+
+<!-- Edit/Add modal -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Save PDF</h2>
+      <button class="modal-close" id="modalClose">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div id="fileInfoWrap" class="form-group">
+        <label class="form-label">File</label>
+        <div class="form-file-info" id="fileInfo"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="nameInput">File name</label>
+        <input type="text" class="form-input" id="nameInput" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="categoryInput">Category</label>
+        <select class="form-select" id="categoryInput">
+          <option value="Real Estate">Real Estate</option>
+          <option value="Contracts">Contracts</option>
+          <option value="Taxes">Taxes</option>
+          <option value="Business">Business</option>
+          <option value="Personal">Personal</option>
+          <option value="Receipts">Receipts</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="notesInput">Notes</label>
+        <textarea class="form-textarea" id="notesInput" placeholder="Add any notes about this document..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" id="modalSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal -->
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal" style="max-width: 380px;">
+    <div class="modal-header">
+      <h2 id="confirmTitle">Delete file?</h2>
+    </div>
+    <div class="modal-body">
+      <p id="confirmMessage" style="font-size: 14px; color: var(--text-muted);">This action cannot be undone.</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="confirmCancel">Cancel</button>
+      <button class="btn btn-danger" id="confirmOk">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ============= IndexedDB Layer ============= */
+const DB_NAME = 'PDFVaultDB';
+const DB_VERSION = 1;
+const STORE = 'pdfs';
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const _db = e.target.result;
+      if (!_db.objectStoreNames.contains(STORE)) {
+        const store = _db.createObjectStore(STORE, { keyPath: 'id' });
+        store.createIndex('uploadDate', 'uploadDate', { unique: false });
+        store.createIndex('category', 'category', { unique: false });
+      }
+    };
+    req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+function tx(mode = 'readonly') {
+  return db.transaction(STORE, mode).objectStore(STORE);
+}
+
+function dbAdd(item) {
+  return new Promise((resolve, reject) => {
+    const r = tx('readwrite').add(item);
+    r.onsuccess = () => resolve(item);
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+function dbPut(item) {
+  return new Promise((resolve, reject) => {
+    const r = tx('readwrite').put(item);
+    r.onsuccess = () => resolve(item);
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+function dbDelete(id) {
+  return new Promise((resolve, reject) => {
+    const r = tx('readwrite').delete(id);
+    r.onsuccess = () => resolve();
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+function dbGetAll() {
+  return new Promise((resolve, reject) => {
+    const r = tx().getAll();
+    r.onsuccess = () => resolve(r.result || []);
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+function dbGet(id) {
+  return new Promise((resolve, reject) => {
+    const r = tx().get(id);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+function dbClear() {
+  return new Promise((resolve, reject) => {
+    const r = tx('readwrite').clear();
+    r.onsuccess = () => resolve();
+    r.onerror = (e) => reject(e.target.error);
+  });
+}
+
+/* ============= App State ============= */
+const CATEGORIES = ['Real Estate', 'Contracts', 'Taxes', 'Business', 'Personal', 'Receipts', 'Other'];
+
+const state = {
+  items: [],
+  search: '',
+  category: 'All',
+  sort: 'newest',
+  pendingFile: null,   // File object waiting to be saved
+  editingId: null,     // id of item being edited
+  pendingDelete: null
+};
+
+/* ============= Helpers ============= */
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function categoryClass(cat) {
+  return 'badge-' + cat.toLowerCase().replace(/\s+/g, '-');
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function showToast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ============= File handling ============= */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = (e) => reject(e);
+    r.readAsDataURL(file);
+  });
+}
+
+function base64ToBlob(base64) {
+  const parts = base64.split(',');
+  const mime = parts[0].match(/:(.*?);/)[1];
+  const bin = atob(parts[1]);
+  const len = bin.length;
+  const arr = new Uint8Array(len);
+  for (let i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+/* ============= Modal control ============= */
+function openEditModal({ file = null, item = null }) {
+  state.pendingFile = file;
+  state.editingId = item ? item.id : null;
+
+  $('#modalTitle').textContent = item ? 'Edit PDF' : 'Save PDF';
+  $('#modalSave').textContent = item ? 'Update' : 'Save';
+
+  if (file) {
+    $('#fileInfoWrap').style.display = '';
+    $('#fileInfo').textContent = `${file.name} • ${formatBytes(file.size)}`;
+    $('#nameInput').value = file.name.replace(/\.pdf$/i, '');
+    $('#categoryInput').value = 'Other';
+    $('#notesInput').value = '';
+  } else if (item) {
+    $('#fileInfoWrap').style.display = 'none';
+    $('#nameInput').value = item.name;
+    $('#categoryInput').value = item.category;
+    $('#notesInput').value = item.notes || '';
+  }
+
+  $('#editModal').classList.add('show');
+  setTimeout(() => $('#nameInput').focus(), 50);
+}
+
+function closeEditModal() {
+  $('#editModal').classList.remove('show');
+  state.pendingFile = null;
+  state.editingId = null;
+}
+
+function openConfirm({ title, message, onConfirm, confirmText = 'Delete' }) {
+  $('#confirmTitle').textContent = title;
+  $('#confirmMessage').textContent = message;
+  $('#confirmOk').textContent = confirmText;
+  state.pendingConfirm = onConfirm;
+  $('#confirmModal').classList.add('show');
+}
+function closeConfirm() {
+  $('#confirmModal').classList.remove('show');
+  state.pendingConfirm = null;
+}
+
+/* ============= CRUD ============= */
+async function saveFromModal() {
+  const name = $('#nameInput').value.trim();
+  const category = $('#categoryInput').value;
+  const notes = $('#notesInput').value.trim();
+
+  if (!name) { showToast('Please enter a file name'); return; }
+
+  if (state.editingId) {
+    const item = await dbGet(state.editingId);
+    if (!item) return;
+    item.name = name;
+    item.category = category;
+    item.notes = notes;
+    await dbPut(item);
+    showToast('Updated');
+  } else if (state.pendingFile) {
+    try {
+      const dataUrl = await fileToBase64(state.pendingFile);
+      const item = {
+        id: uid(),
+        name,
+        category,
+        notes,
+        size: state.pendingFile.size,
+        uploadDate: new Date().toISOString(),
+        important: false,
+        fileData: dataUrl
+      };
+      await dbAdd(item);
+      showToast('PDF saved');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save PDF');
+      return;
+    }
+  }
+
+  closeEditModal();
+  await refresh();
+}
+
+async function toggleImportant(id) {
+  const item = await dbGet(id);
+  if (!item) return;
+  item.important = !item.important;
+  await dbPut(item);
+  await refresh();
+}
+
+async function viewPDF(id) {
+  const item = await dbGet(id);
+  if (!item) return;
+  const blob = base64ToBlob(item.fileData);
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+  // Revoke later — give browser time to load
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+async function downloadPDF(id) {
+  const item = await dbGet(id);
+  if (!item) return;
+  const blob = base64ToBlob(item.fileData);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = item.name.endsWith('.pdf') ? item.name : item.name + '.pdf';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function deletePDF(id, name) {
+  openConfirm({
+    title: 'Delete file?',
+    message: `"${name}" will be permanently removed from your vault.`,
+    onConfirm: async () => {
+      await dbDelete(id);
+      showToast('Deleted');
+      await refresh();
+    }
+  });
+}
+
+/* ============= Backup / Restore ============= */
+async function exportBackup() {
+  const items = await dbGetAll();
+  if (!items.length) { showToast('Nothing to export'); return; }
+  const payload = {
+    app: 'ImportantPDFVault',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    items
+  };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `pdf-vault-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  showToast(`Exported ${items.length} file(s)`);
+}
+
+async function importBackup(file) {
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data || !Array.isArray(data.items)) {
+      showToast('Invalid backup file');
+      return;
+    }
+    openConfirm({
+      title: 'Import backup?',
+      message: `This will replace your current vault with ${data.items.length} file(s) from the backup.`,
+      confirmText: 'Replace',
+      onConfirm: async () => {
+        await dbClear();
+        for (const item of data.items) {
+          // Make sure required fields exist
+          if (!item.id) item.id = uid();
+          if (!item.uploadDate) item.uploadDate = new Date().toISOString();
+          if (!item.category) item.category = 'Other';
+          await dbAdd(item);
+        }
+        showToast(`Imported ${data.items.length} file(s)`);
+        await refresh();
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to read backup file');
+  }
+}
+
+/* ============= Rendering ============= */
+function renderFilters() {
+  const counts = { All: state.items.length };
+  CATEGORIES.forEach(c => counts[c] = 0);
+  state.items.forEach(it => { counts[it.category] = (counts[it.category] || 0) + 1; });
+
+  const cats = ['All', ...CATEGORIES];
+  const html = cats.map(cat => {
+    const count = counts[cat] || 0;
+    const active = state.category === cat ? 'active' : '';
+    return `<button class="filter-chip ${active}" data-cat="${escapeHtml(cat)}">
+      ${escapeHtml(cat)}
+      <span class="filter-count">${count}</span>
+    </button>`;
+  }).join('');
+
+  $('#filters').innerHTML = html;
+  $$('#filters .filter-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.category = btn.dataset.cat;
+      renderGrid();
+      renderFilters();
+    });
+  });
+}
+
+function getFilteredItems() {
+  let list = state.items.slice();
+
+  if (state.category !== 'All') {
+    list = list.filter(it => it.category === state.category);
+  }
+
+  if (state.search) {
+    const q = state.search.toLowerCase();
+    list = list.filter(it =>
+      it.name.toLowerCase().includes(q) ||
+      (it.notes || '').toLowerCase().includes(q)
+    );
+  }
+
+  switch (state.sort) {
+    case 'newest':
+      list.sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate));
+      break;
+    case 'oldest':
+      list.sort((a, b) => new Date(a.uploadDate) - new Date(b.uploadDate));
+      break;
+    case 'az':
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    case 'important':
+      list.sort((a, b) => {
+        if (a.important !== b.important) return b.important - a.important;
+        return new Date(b.uploadDate) - new Date(a.uploadDate);
+      });
+      break;
+  }
+
+  return list;
+}
+
+function renderGrid() {
+  const list = getFilteredItems();
+  const container = $('#gridContainer');
+
+  if (!list.length) {
+    const noItems = state.items.length === 0;
+    container.innerHTML = `
+      <div class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <h3>${noItems ? 'Your vault is empty' : 'No matching files'}</h3>
+        <p>${noItems ? 'Upload your first PDF to get started' : 'Try a different search or category'}</p>
+      </div>
+    `;
+    return;
+  }
+
+  const cards = list.map(item => `
+    <div class="card ${item.important ? 'important' : ''}" data-id="${item.id}">
+      <div class="card-top">
+        <div class="pdf-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <div class="card-title-block">
+          <div class="card-title">${escapeHtml(item.name)}</div>
+          <span class="badge ${categoryClass(item.category)}">${escapeHtml(item.category)}</span>
+        </div>
+        <button class="star-btn ${item.important ? 'active' : ''}" data-action="star" title="Mark as important">
+          <svg viewBox="0 0 24 24" fill="${item.important ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </button>
+      </div>
+
+      ${item.notes ? `<div class="card-notes">${escapeHtml(item.notes)}</div>` : ''}
+
+      <div class="card-meta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span>${formatDate(item.uploadDate)}</span>
+        ${item.size ? `<span>•</span><span>${formatBytes(item.size)}</span>` : ''}
+      </div>
+
+      <div class="card-actions">
+        <button class="btn btn-primary" data-action="view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          View
+        </button>
+        <button class="btn btn-secondary" data-action="download" title="Download">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+        <button class="btn btn-secondary" data-action="edit" title="Edit details">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="btn btn-danger" data-action="delete" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  container.innerHTML = `<div class="grid">${cards}</div>`;
+
+  // Wire card actions
+  container.querySelectorAll('.card').forEach(card => {
+    const id = card.dataset.id;
+    card.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const action = btn.dataset.action;
+        if (action === 'view') viewPDF(id);
+        else if (action === 'download') downloadPDF(id);
+        else if (action === 'star') toggleImportant(id);
+        else if (action === 'delete') {
+          const item = state.items.find(x => x.id === id);
+          if (item) deletePDF(id, item.name);
+        } else if (action === 'edit') {
+          const item = await dbGet(id);
+          if (item) openEditModal({ item });
+        }
+      });
+    });
+  });
+}
+
+async function refresh() {
+  state.items = await dbGetAll();
+  renderFilters();
+  renderGrid();
+}
+
+/* ============= Event wiring ============= */
+function handleFiles(fileList) {
+  const files = Array.from(fileList).filter(f => {
+    if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) return true;
+    return false;
+  });
+  if (!files.length) {
+    showToast('Please select PDF files only');
+    return;
+  }
+  if (files.length > 1) {
+    // For multiple files, save each with default name and "Other" category, show toast
+    multiUpload(files);
+  } else {
+    openEditModal({ file: files[0] });
+  }
+}
+
+async function multiUpload(files) {
+  let saved = 0;
+  for (const f of files) {
+    try {
+      const dataUrl = await fileToBase64(f);
+      const item = {
+        id: uid(),
+        name: f.name.replace(/\.pdf$/i, ''),
+        category: 'Other',
+        notes: '',
+        size: f.size,
+        uploadDate: new Date().toISOString(),
+        important: false,
+        fileData: dataUrl
+      };
+      await dbAdd(item);
+      saved++;
+    } catch (err) {
+      console.error('Failed to save', f.name, err);
+    }
+  }
+  showToast(`Saved ${saved} file(s) — set categories from each card`);
+  await refresh();
+}
+
+function wireEvents() {
+  // Upload input
+  $('#fileInput').addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length) {
+      handleFiles(e.target.files);
+      e.target.value = '';
+    }
+  });
+
+  // Drag & drop
+  const zone = $('#uploadZone');
+  ['dragenter', 'dragover'].forEach(ev => {
+    zone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(ev => {
+    zone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.remove('dragover');
+    });
+  });
+  zone.addEventListener('drop', (e) => {
+    if (e.dataTransfer.files && e.dataTransfer.files.length) {
+      handleFiles(e.dataTransfer.files);
+    }
+  });
+
+  // Search & sort
+  $('#searchInput').addEventListener('input', (e) => {
+    state.search = e.target.value;
+    renderGrid();
+  });
+  $('#sortSelect').addEventListener('change', (e) => {
+    state.sort = e.target.value;
+    renderGrid();
+  });
+
+  // Modals
+  $('#modalClose').addEventListener('click', closeEditModal);
+  $('#modalCancel').addEventListener('click', closeEditModal);
+  $('#modalSave').addEventListener('click', saveFromModal);
+  $('#editModal').addEventListener('click', (e) => {
+    if (e.target.id === 'editModal') closeEditModal();
+  });
+
+  $('#confirmCancel').addEventListener('click', closeConfirm);
+  $('#confirmOk').addEventListener('click', () => {
+    if (state.pendingConfirm) state.pendingConfirm();
+    closeConfirm();
+  });
+  $('#confirmModal').addEventListener('click', (e) => {
+    if (e.target.id === 'confirmModal') closeConfirm();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeEditModal();
+      closeConfirm();
+    }
+  });
+
+  // Backup
+  $('#exportBtn').addEventListener('click', exportBackup);
+  $('#importBtn').addEventListener('click', () => $('#importInput').click());
+  $('#importInput').addEventListener('change', (e) => {
+    if (e.target.files && e.target.files[0]) {
+      importBackup(e.target.files[0]);
+      e.target.value = '';
+    }
+  });
+}
+
+/* ============= Init ============= */
+(async function init() {
+  try {
+    await openDB();
+    wireEvents();
+    await refresh();
+  } catch (err) {
+    console.error('Init failed', err);
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif"><h2>Storage unavailable</h2><p>Your browser blocked IndexedDB. Try a regular (non-private) window.</p></div>';
+  }
+})();
+</script>
+
+</body>
+</html>
